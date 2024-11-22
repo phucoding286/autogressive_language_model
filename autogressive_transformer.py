@@ -1,17 +1,19 @@
 import torch
 from torch import nn
+from beam_search import beam_search
 D = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 # train mô hình
-def trainer(epochs=20, model: object = None, lr: int = 0.0001):
+def trainer(epochs=20, inp=None, model: object = None, lr: int = 0.0001):
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
     losses = []
     for epoch in range(epochs):
         model.train()
-        pred_seq_prob = model.generate(tinp, train=True)
+        pred_seq_prob = model.generate(inp, train=True)
         pred_seq_prob = pred_seq_prob.view(-1, pred_seq_prob.size(-1))
-        loss = criterion(pred_seq_prob, tinp.view(-1))
+        loss = criterion(pred_seq_prob, inp.view(-1))
 
         optimizer.zero_grad()
         loss.backward()
@@ -111,8 +113,10 @@ class tM(torch.nn.Module):
         return key_padding_mask.to(device)
     
     # cách dự đoán theo kiểu autogressive
-    def generate(self, x, train=False, max_tokens=2):
+    def generate(self, x, train=False, max_tokens=2, beam_width=3, penalty=1, length_penalty=3,
+                temperature:float=0.2):
         x = self.e(x)
+        max_tok_inp = x.size(1)
 
         if train:
             max_tokens = x.size(1)
@@ -132,44 +136,25 @@ class tM(torch.nn.Module):
             prediction = prediction[:, -1, :].unsqueeze(1)
 
             x = torch.concatenate([x, prediction], dim=1)
+
+            # giảm bớt bộ nhớ ngữ cảnh phía sau nếu nó tràn
+            if x.size(1) > max_tok_inp:
+                x = x[:, max_tok_inp:, :]
+
             sequences.append(prediction)
 
         out = torch.cat(sequences, dim=1)
         out = self.o(out)
+        
+        if not train:
+            sequences = out = beam_search(
+                model_probs=out,
+                beam_width=beam_width,
+                penalty=penalty,
+                length_penalty=length_penalty,
+                temperature=temperature,
+                early_stoping=True,
+            )
+            return sequences
+
         return out
-
-
-tinp = torch.randint(
-    low=1,
-    high=20,
-    size=(12, 32)
-)
-tinp = tinp.to(D)
-
-m = tM(
-    vocab_size=20,
-    d_model=768,
-    dropout=0.1,
-    nhead=8,
-    ffn_dim=1536,
-    num_layers=12,
-    device=D
-)
-
-print(trainer(
-    epochs=300,
-    model=m,
-    lr=0.0001
-))
-
-# so sánh giữa tập train gốc và kết quả dự đoán
-print("Compare all batchés:")
-print(tinp[:2, :])
-pred_seq_prob = m.generate(tinp, train=True)
-print(torch.argmax(pred_seq_prob, dim=-1)[:2, :])
-
-# chặn đi phân nữa câu cho đầu vào để kiểm tra mức độ suy luận của mô hình có cao không
-print("Compare one in batches:")
-print(tinp[0, :])
-test_pred = m.generate(tinp[0, :10].unsqueeze(0), max_tokens=30)
-print(torch.argmax(test_pred, dim=-1))
