@@ -41,8 +41,8 @@ def trainer(epochs=20, inp=None, model: object = None, lr: int = 0.0001, batch_s
 
         if (epoch + 1) % 1 == 0:
             print(f'Epoch [{epoch + 1}/{epochs}], Loss: {avg_epoch_loss:.4f}')
-
-    torch.save(model, model_path)
+    
+    torch.save(model.state_dict(), model_path)
     return "Training complete!"
 
 
