@@ -1,30 +1,50 @@
 import torch
 from torch import nn
 from beam_search import beam_search
+from torch.utils.data import DataLoader, TensorDataset
 D = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 # train mô hình
-def trainer(epochs=20, inp=None, model: object = None, lr: int = 0.0001):
+def trainer(epochs=20, inp=None, model: object = None, lr: int = 0.0001, batch_size=32, model_path="model.pth"):
+    # Chuyển dữ liệu đầu vào thành TensorDataset và DataLoader
     inp = inp.long()
+    dataset = TensorDataset(inp)  # Xây dựng dataset từ inp
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)  # Chia dữ liệu thành các batch
+
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     losses = []
     for epoch in range(epochs):
-        model.train()
-        pred_seq_prob = model.generate(inp, train=True)
-        pred_seq_prob = pred_seq_prob.view(-1, pred_seq_prob.size(-1))
-        loss = criterion(pred_seq_prob, inp.view(-1))
+        model.train()  # Đặt mô hình ở chế độ huấn luyện
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        losses.append(loss.item())
+        epoch_loss = 0.0  # Tổng loss trong mỗi epoch
+        for batch_idx, (batch_inp,) in enumerate(dataloader):  # Duyệt qua các batch
+            # Dự đoán xác suất chuỗi
+            pred_seq_prob = model.generate(batch_inp, train=True)
+            pred_seq_prob = pred_seq_prob.view(-1, pred_seq_prob.size(-1))  # Thay đổi hình dạng để phù hợp với CrossEntropyLoss
+
+            # Tính loss
+            loss = criterion(pred_seq_prob, batch_inp.view(-1))  # Lưu ý: batch_inp cần phải reshape thành 1D
+
+            # Cập nhật trọng số của mô hình
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            print(f"Step {batch_idx+1}/{len(dataloader)}, Loss on step -> {loss.item()}")
+
+        # Tính loss trung bình cho mỗi epoch
+        avg_epoch_loss = epoch_loss / len(dataloader)
+        losses.append(avg_epoch_loss)
 
         if (epoch + 1) % 1 == 0:
-            print(f'Epoch [{epoch + 1}/{epochs}], Loss: {loss.item():.4f}')
-            
+            print(f'Epoch [{epoch + 1}/{epochs}], Loss: {avg_epoch_loss:.4f}')
+
+    torch.save(model, model_path)
     return "Training complete!"
+
 
 # embedding mã hóa vị trí  
 class PositionalEmbedding(nn.Module):
