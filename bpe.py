@@ -105,15 +105,3 @@ class BPE:
                     text += self.idx_voc[str(int(logit))]
             texts.append(text)
         return texts
-
-data = open("data.txt", "r", encoding="utf8").read().splitlines()[:5000]
-tok = BPE()
-out = tok.train(
-    batches_texts=data,
-    epochs=1000
-)
-seq = tok.texts_to_sequences(["Meaning of hello in English hello exclamation"], padding_dim=32)
-txt = tok.sequences_to_texts(seq)
-
-print(seq)
-print(txt)
