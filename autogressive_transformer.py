@@ -5,6 +5,7 @@ D = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 # train mô hình
 def trainer(epochs=20, inp=None, model: object = None, lr: int = 0.0001):
+    inp = inp.long()
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -154,6 +155,7 @@ class tM(torch.nn.Module):
                 length_penalty=length_penalty,
                 temperature=temperature,
                 early_stoping=True,
+                device=self.device
             )
             return sequences
 
