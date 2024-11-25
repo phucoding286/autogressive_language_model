@@ -82,7 +82,7 @@ def expand_embedding(new_vocab_size:int, old_model_path="model.pth", new_model_p
     )
 
     # mở rộng weight của embedding
-    old_embed_weight = probs_language_model.position_embedding.embedding.weight
+    old_embed_weight = checkpoint['position_embedding.embedding.weight']
     new_embed_weight = torch.nn.Embedding(
         new_vocab_size,
         old_embed_weight.size(1)
