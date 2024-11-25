@@ -58,7 +58,7 @@ def trainer(epochs=20, inp=None, model: object = None, lr: int = 0.0001, batch_s
     return 0
 
 
-def optimizer_train_for_big_batch(first_batch:list[str], second_batch:list=None, batch_bias=None,
+def optimizer_train_for_big_batch(first_batch:list[str], second_batch:list=None, batch_bias="first",
         model=None, tokenizer=None, epochs=1, lr=0.0001, batch_rdn_size=2, batch_size=1,
         padding_dim=512, out_model_path="model.pth"):
     """
