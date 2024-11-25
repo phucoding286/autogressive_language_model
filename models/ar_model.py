@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from models.beam_search import beam_search, search
 from torch.utils.data import DataLoader, TensorDataset
+import random
 D = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 # hàm train dành riêng cho mô hình sinh chuổi AR (Autogressive)
@@ -55,6 +56,43 @@ def trainer(epochs=20, inp=None, model: object = None, lr: int = 0.0001, batch_s
     torch.save(model.state_dict(), model_path)
     print("Đã huấn luyện thành công mô hình xác suất tự chú ý")
     return 0
+
+
+def optimizer_train_for_big_batch(first_batch:list[str], second_batch:list=None, batch_bias=None,
+        model=None, tokenizer=None, epochs=1, lr=0.0001, batch_rdn_size=2, batch_size=1,
+        padding_dim=512, out_model_path="model.pth"):
+    """
+    batch_bias: ["second" or "first"]
+    """
+    for _ in range(epochs):
+        inp = None
+        if second_batch is not None and batch_bias == "first":
+            inp = [random.choice(first_batch) for _ in range(batch_rdn_size)]
+            inp += [random.choice(second_batch) for _ in range( int(batch_rdn_size / 2) )]
+
+        elif second_batch is not None and batch_bias == "second":
+            inp = [random.choice(first_batch) for _ in range( int(batch_rdn_size / 2) )]
+            inp += [random.choice(second_batch) for _ in range(batch_rdn_size)]
+        
+        else:
+            inp = [random.choice(first_batch) for _ in range(batch_rdn_size)]
+
+        data_train = tokenizer.texts_to_sequences(
+            texts=inp,
+            padding_dim=padding_dim,
+            padding=True,
+            end_token=True
+        )
+        data_train = torch.tensor(data_train).to(D)
+
+        trainer(
+            epochs=1,
+            inp=data_train,
+            model=model,
+            lr=lr,
+            batch_size=batch_size,
+            model_path=out_model_path
+        )
 
 
 # mở rộng trọng số embedding nếu có thêm token mới
